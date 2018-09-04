@@ -148,12 +148,11 @@ def iter_game():
     return step, pop
 
 
-def main():
+def main(max_pop=25):
     # Brute-force way to find chains that finish with max_pop defined below.
     # Quite slow because of some obvious factors like... python itself? and
     # the fact that i didn't optimize the code for performance. its a TEST
     from random import randint
-    max_pop = 25  # values below 25 may take a very long time to finish
     i = 0
     while True:
         msgs.clear()
@@ -165,18 +164,16 @@ def main():
         if pop < max_pop:
             print()
             break
-        print("\rsimulation: ", i, "last_pop=", pop, end='')  # i like to see how far we are
+        print("\rsimulation: ", i, "last_pop:", pop, end='')  # i like to see how far we are
         i += 1
     print(*msgs, sep=' ')
 
 
-def simulate():
+def simulate(values):
     # mainly useful to test manually-created chains
     # input must be a sequence of values representing the value of each cell
     # if the value is not mapped (in the values dict) it will be shown as a '?'
     global arena
-    print("values (6*12=72):")
-    values = input()
     if len(values) != 72:
         return
     arena = [int(i) for i in values]
@@ -186,6 +183,28 @@ def simulate():
     print(*msgs, sep=' ')
 
 
+help_msg = """Usage: run.py [OPTION]
+Runs a simulation of the puyo-puyo logic.
+
+With no OPTION given, run the simulation until population reaches 25
+
+  -i ...  Simulate a custom set. Implies -s.
+  -s N    Simulate random sets until population reaches N.
+  
+Notes:
+Custom sets must be have 72 characters and use the numbers in range 0 ~ 5
+Example:
+run.py -i 324512433125223223242224115335151152143454224512214344515333415115345155
+"""
+
 if __name__ == "__main__":
-    main()
-    # simulate()
+    import sys
+    args = sys.argv
+    if "-i" in args:
+        simulate(args[args.index("-i") + 1])
+    elif "-h" in args or "--help" in args:
+        print(help_msg)
+    elif "-s" in args:
+        main(int(args[args.index("-s") + 1]))
+    else:
+        main()
