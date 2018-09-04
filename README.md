@@ -5,6 +5,9 @@ test stuff.
 I really want to implement a monte carlo search algorithm to generate efficient chains, instead of this crappy brute-force code implemented right now and i eventually will when i finish my college stuff. I dont plan to implement it using python in the future though (\*cough\* slow af \*cough\*). Maybe using the beloved Godot Engine? who knows :) (sure i will. i love you Godot <3)
 
 
-## Here is an animated preview of how it works
+### [Test it online, right now](https://repl.it/repls/GentleBouncyFacts)
+
+
+### Here is an animated preview of how it works
 
 ![alt text](play.gif "HowPuyoWorks")
