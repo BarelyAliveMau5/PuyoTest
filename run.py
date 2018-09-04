@@ -149,8 +149,11 @@ def iter_game():
 
 
 def main():
+    # Brute-force way to find chains that finish with max_pop defined below.
+    # Quite slow because of some obvious factors like... python itself? and
+    # the fact that i didn't optimize the code for performance. its a TEST
     from random import randint
-    pop = 30
+    max_pop = 25  # values below 25 may take a very long time to finish
     i = 0
     while True:
         msgs.clear()
@@ -159,15 +162,18 @@ def main():
         show()
         step, pop = iter_game()
         s_print("total steps:", step)
-        if pop < 5:
+        if pop < max_pop:
             print()
             break
-        print("\rsimulation: ", i, end='')  # i like to see how far we are
+        print("\rsimulation: ", i, "last_pop=", pop, end='')  # i like to see how far we are
         i += 1
     print(*msgs, sep=' ')
 
 
 def simulate():
+    # mainly useful to test manually-created chains
+    # input must be a sequence of values representing the value of each cell
+    # if the value is not mapped (in the values dict) it will be shown as a '?'
     global arena
     print("values (6*12=72):")
     values = input()
@@ -181,5 +187,5 @@ def simulate():
 
 
 if __name__ == "__main__":
-    # main()
-    simulate()
+    main()
+    # simulate()
