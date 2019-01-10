@@ -12,17 +12,10 @@
 # it using python in the future though (*cough* slow af *cough*). Maybe using  
 # the beloved Godot Engine? who knows :) (sure i will. i love you Godot <3)
 
-zf = 0  # zero fill, empty area, empty space
+zf = '.'  # zero fill, empty area, empty space
 big_group = 4  # minimum group size to be considered big enough to get removed
 
-types = {
-    zf: '.',
-    1: 'a',
-    2: 'b',
-    3: 'c',
-    4: 'd',
-    5: 'e'
-}
+types = "abcde"  # more types = greater complexity = harder to solve
 
 sz_x = 6  # arena width
 sz_y = 12  # arena height
@@ -44,8 +37,8 @@ def set_at(x, y, v):
 msgs = []
 
 
-def s_print(*args, end='\n', sep=' '):
-    msgs.append(sep.join(map(str, args)) + end)
+def s_print(*nargs, end='\n', sep=' '):
+    msgs.append(sep.join(map(str, nargs)) + end)
 
 
 def arena_iter():
@@ -57,12 +50,12 @@ def arena_iter():
 def pull_down():
     # columns don't mess with side neighbors
     for x in range(sz_x):
-        # take every column and select only non-zfs
-        y_lst = [at(x, y) for y in range(sz_y) if at(x, y) != zf]
-        # fill the previous remaining space with zf and extend with the squashed
-        y_lst = [zf for _ in range(sz_y - len(y_lst))] + y_lst
+        # select only non-empty-space (non-zfs)
+        y_list = [at(x, y) for y in range(sz_y) if at(x, y) != zf]
+        # fill space "above" with empty-space, acts like gravity
+        y_list = [zf for _ in range(sz_y - len(y_list))] + y_list
         # apply modifications
-        for y, v in enumerate(y_lst):
+        for y, v in enumerate(y_list):
             set_at(x, y, v)
 
 
@@ -70,7 +63,6 @@ def __get_groups(x, y, groups):
     if not (sz_x > x >= 0 and sz_y > y >= 0):  # boundary error checking
         # this should never be true
         return
-
     group_type = at(x, y)
     if group_type == zf:  # ignore empty space
         return
@@ -128,7 +120,7 @@ def show(current_x=-1, current_y=-1, mark_char='x'):
             if current_x == x and current_y == y:
                 print(mark_char, end='')
             else:
-                s_print(types.get(at(x, y), '?'), end='')
+                s_print(at(x, y), end='')
         s_print("")
     population = len([0 for x, y in arena_iter() if at(x, y) != zf])
     s_print("population:", population, "\n")
@@ -148,7 +140,7 @@ def iter_game():
     return step, pop
 
 
-def main(max_pop=25):
+def main(max_pop):
     # Brute-force way to find chains that finish with max_pop defined below.
     # Quite slow because of some obvious factors like... python itself? and
     # the fact that i didn't optimize the code for performance. its a TEST
@@ -157,7 +149,8 @@ def main(max_pop=25):
     while True:
         msgs.clear()
         for x, y in arena_iter():
-            set_at(x, y, randint(1, len(types) - 1))
+            # randint seems a lot faster than random.choice
+            set_at(x, y, types[randint(1, len(types) - 1)])
         show()
         step, pop = iter_game()
         s_print("total steps:", step)
@@ -166,7 +159,7 @@ def main(max_pop=25):
             break
         print("\rsimulation: ", i, "last_pop:", pop, end='')  # i like to see how far we are
         i += 1
-    print(*msgs, sep=' ')
+    print(*msgs, sep='')
 
 
 def simulate(values):
@@ -176,35 +169,60 @@ def simulate(values):
     global arena
     if len(values) != 72:
         return
-    arena = [int(i) for i in values]
+    arena = list(values)
     msgs.clear()
     show()
     iter_game()
     print(*msgs, sep=' ')
 
 
-help_msg = """Usage: run.py [OPTION]
-Runs a simulation of the puyo-puyo logic.
+def argument_parser():
+    import argparse
+    import textwrap
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent('''\
+             note:
+                custom sets are case-sensitive and must be 72 characters long. 
+                emojis can be used too if you like them (needs UTF-8 support)
+                
+             example:
+                custom set:
+                run.py -c cbdeabdccabebbcbbcbdbbbdaaecceaeaaebadcdedbbdeabbadcddeaecccdaeaaecdeaee
+                
+                custom set with emoji:
+                run.py -z ".." -c 🍰👀😈😡😀👀😈🍰🍰😀👀😡👀👀🍰👀👀🍰👀😈👀👀👀😈😀😀😡🍰🍰😡😀😡😀😀😡👀😀😈🍰😈😡😈👀👀😈😡😀👀👀😀😈🍰😈😈😡😀😡🍰🍰🍰😈😀😡😀😀😡🍰😈😡😀😡😡
+             '''))
 
-With no OPTION given, run the simulation until population reaches 25
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-c", help="simulate a custom set. Implies -s.",
+                       metavar="SET", action='store')
+    group.add_argument("-s",
+                       help="simulate random sets until population reaches N",
+                       metavar="N", action="store", type=int,
+                       choices=range(1, 72))
+    parser.add_argument("-z", help="empty space character(s)", default=".",
+                        metavar="CHARS", action="store")
+    parser.add_argument("-x", help="define the characters of the random set",
+                        metavar="CHARS", default="abcde", action="store")
+    return parser
 
-  -i ...  Simulate a custom set. Implies -s.
-  -s N    Simulate random sets until population reaches N.
-  
-Notes:
-Custom sets must be have 72 characters and use the numbers in range 0 ~ 5
-Example:
-run.py -i 324512433125223223242224115335151152143454224512214344515333415115345155
-"""
 
 if __name__ == "__main__":
-    import sys
-    args = sys.argv
-    if "-i" in args:
-        simulate(args[args.index("-i") + 1])
-    elif "-h" in args or "--help" in args:
-        print(help_msg)
-    elif "-s" in args:
-        main(int(args[args.index("-s") + 1]))
+    args = argument_parser().parse_args()
+    if args.x and args.c:
+        print("Option -x cannot be used with -c")
+        exit(-1)
+    elif args.x:
+        types = args.x
+    if args.z:
+        zf = args.z
+    if args.c:
+        if len(args.c) != 72:
+            print("custom sets must be 72 characters long.")
+            exit(-1)
+        simulate(args.c)
+    elif args.s:
+        main(args.s)
     else:
-        main()
+        main(25)
