@@ -27,10 +27,10 @@ log.setLevel(logging.DEBUG)
 
 class Board:
     zf = 0  # zero fill, empty space
-    brick = 255  # does not chain by itself
-    print_zf = '.'
+    brick = 255  # aka ojama puyo
+    print_zf = '.'  # repr
     print_brick = "#"
-    types = "abcde"
+    types = "abcde"  # puyos
     big_group = 4
 
     def __init__(self, width=6, height=12):
@@ -115,12 +115,15 @@ class Board:
                 self.set_at(x, y, v)
 
     @staticmethod
-    def pair(v1: int, v2: int, vertical=False) -> List[List[int]]:
+    def _mk_pair(v1: int, v2: int, vertical=False) -> List[List[int]]:
+        zf = Board.zf
         if vertical:
-            return [[v1, Board.zf], [v2, Board.zf]]
-        return [[v1, v2], [Board.zf, Board.zf]]
+            return [[v1, zf],
+                    [v2, zf]]
+        return [[v1, v2],
+                [zf, zf]]
 
-    def add_pair(self, pos: int, values: List[List[int]]):
+    def _add_pair(self, pos: int, values: List[List[int]]):
         # todo: test add_pair
         """
         adds a pair onto the board
@@ -134,7 +137,7 @@ class Board:
         # p0 px
         # py
         # its always either a vertical or horizontal pair
-        p0, px, py = values[0][0], values[1][0], values[0][1]
+        p0, px, py = values[0][0], values[0][1], values[1][0]
         if p0 == self.zf or (px != self.zf and py != self.zf) or values[1][1]:
             log.error("invalid pair")
             return
@@ -193,23 +196,24 @@ class Board:
                 self.__get_group(x, y, groups)
         return groups
 
-    def _has_big_groups(self, min_=big_group):
+    def __count_points(self, points):
+        # dont count bricks
+        return [(x, y) for x, y in points if self.at(x, y) != self.brick]
+
+    def _has_big_groups(self):
         groups = self._find_groups()
         for points in groups:
-            # dont count bricks
-            if len([(x, y) for x, y in points
-                    if self.at(x, y) != self.brick]) >= min_:
+            if len(self.__count_points(points)) >= self.big_group:
                 return True
 
-    def _remove_big_groups(self, min_=big_group):
+    def _remove_big_groups(self):
         groups = self._find_groups()
         for points in groups:
-            # dont count bricks
-            if len([(x, y) for x, y in points
-                    if self.at(x, y) != self.brick]) >= min_:
+            if len(self.__count_points(points)) >= self.big_group:
                 for x, y in points:
                     self.set_at(x, y, self.zf)
 
+    @property
     def population(self):
         return sum(1 for x, y in self if self.at(x, y) != self.zf)
 
@@ -218,7 +222,7 @@ class Board:
         if pulldown:
             self.pulldown()
 
-    def solve(self):
+    def _solve(self):
         while self._has_big_groups():
             self.step()
 
@@ -226,6 +230,45 @@ class Board:
         for x, y in self:
             print(self._char_dict[self.at(x, y)],
                   end='\n' if x == self._width - 1 else '')
+        print()
+
+
+class GamePlay(Board):
+    class Status:
+        kPlaying = 0
+        kWin = 1
+        kLose = 2
+
+    def __init__(self, *args, **kwargs):
+        """
+        creates a new game board instance that keeps track of many game states
+
+        :key width: board width
+        :key height: board height
+        """
+        super(GamePlay, self).__init__(*args, **kwargs)
+        self.current_status = self.Status.kPlaying
+
+    # problem: need to know how many puyos were removed in order to add score
+    # solution #1: compare old vs new population_types to view the diff
+    # solution #2: re-implement _remove_big_groups counting each type
+    # decision: test each one and take the fastestest
+    # todo: test solution #1(cmp) and #2(re-impl)
+    def _population_types(self):
+        ptypes = {}
+        for x, y in self:
+            type_ = self.at(x, y)
+            if type_ != self.zf:
+                ptypes[type_] = 1 if type_ not in ptypes else ptypes[type_] + 1
+        return ptypes
+
+    @property
+    def is_ready(self):
+        # i.e.: cannot add anything while not ready
+        return not self._has_big_groups()
+
+    def solve(self):
+        self._solve()
 
 
 def argument_parser():
@@ -274,48 +317,48 @@ deaecccdaeaaecdeaee
 
 if __name__ == "__main__":
     cmd_args = argument_parser().parse_args()
-    board = Board()
+    game = GamePlay()
 
     if cmd_args.x and cmd_args.c:
         print("Option -x cannot be used with -c")
         exit(-1)
 
     if cmd_args.x:  # define the characters of the random set
-        Board.types = cmd_args.x
-        board = Board()
+        GamePlay.types = cmd_args.x
+        game = GamePlay()
 
     if cmd_args.z:  # empty space character(s)
-        if sum(1 for i in cmd_args.z if i in board.types):
+        if sum(1 for i in cmd_args.z if i in game.types):
             log.error("character reserved for printing")
             exit(-1)
-        Board.print_zf = cmd_args.z
+            GamePlay.print_zf = cmd_args.z
 
     if cmd_args.b:
-        if cmd_args.b in Board.types or cmd_args.b in board.print_zf:
+        if cmd_args.b in GamePlay.types or cmd_args.b in game.print_zf:
             log.error("character reserved for printing")
             exit(-1)
-        Board.print_brick = cmd_args.b
+            GamePlay.print_brick = cmd_args.b
 
     if cmd_args.d:  # arena dimension
-        board = Board(*cmd_args.d)
+        game = GamePlay(*cmd_args.d)
 
     if cmd_args.c:  # simulate a custom set
-        size = board.width * board.height
+        size = game.width * game.height
         if len(cmd_args.c) != size:
             print(f"custom sets must be {size} characters long.")
             exit(-1)
         types = sorted("".join(set(cmd_args.c)))
-        if types != sorted(board.types):
-            Board.print_zf = board.print_zf
-            Board.types = "".join(types)
-            board = Board(board.width, board.height)
-        board.load_str(cmd_args.c)
-        board.solve()
-        board.show()
+        if types != sorted(game.types):
+            GamePlay.print_zf = game.print_zf
+            GamePlay.types = "".join(types)
+            game = GamePlay(game.width, game.height)
+        game.load_str(cmd_args.c)
+        game.solve()
+        game.show()
     elif cmd_args.s:
         print("simulations are disabled right now.")
         exit(-1)
-        while board.population() > cmd_args.s:
+        while game.population > cmd_args.s:
             # todo: implement simulations
             break
     else:
